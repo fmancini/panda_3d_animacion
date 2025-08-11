@@ -13,7 +13,7 @@ class OrganicSphere(ShowBase):
         ShowBase.__init__(self)
         
         # Configurar la ventana
-        self.setBackgroundColor(1.0, 1.0, 1.0)
+        self.setBackgroundColor(0.1, 0.1, 0.1)
         
         # Crear un plano de tierra para recibir la sombra
         # self.create_ground_plane()
@@ -75,12 +75,20 @@ class OrganicSphere(ShowBase):
         self.audio_playing = False
         self.music_file = None
         
+        # Variables para satélites
+        self.satellites = []
+        self.satellite_orbits = []
+        self.num_satellites = 10
+        
         # Inicializar pygame mixer para audio
         pygame.mixer.pre_init(frequency=44100, size=-16, channels=2, buffer=1024)
         pygame.mixer.init()
         
         # Buscar archivo MP3 en el directorio del proyecto
         self.find_and_load_music()
+        
+        # Crear satélites orbitales
+        self.create_satellites()
         
         self.store_original_vertices()
         
@@ -258,6 +266,72 @@ class OrganicSphere(ShowBase):
         # Configurar antialiasing
         self.render.set_antialias(AntialiasAttrib.M_auto)
     
+    def create_satellites(self):
+        """Crear satélites esféricos que orbiten alrededor de la esfera principal"""
+        for i in range(self.num_satellites):
+            # Crear una esfera pequeña para cada satélite
+            satellite_sphere = self.render.attachNewNode("satellite_sphere")
+            
+            # Crear segmentos para la esfera satélite (máxima densidad posible)
+            segments_per_satellite = 16  # Máxima densidad de segmentos
+            segment_size = 0.080  # Tamaño ultra pequeño para densidad extrema
+            
+            satellite_segments = []
+            for j in range(segments_per_satellite):
+                for k in range(segments_per_satellite):
+                    # Crear cada segmento de la esfera satélite
+                    segment_maker = CardMaker(f"satellite_segment_{i}_{j}_{k}")
+                    segment_maker.setFrame(-segment_size, segment_size, -segment_size, segment_size)
+                    segment_node = satellite_sphere.attachNewNode(segment_maker.generate())
+                    
+                    # Posición esférica para el segmento
+                    phi = (j / segments_per_satellite) * 2 * math.pi
+                    theta = (k / segments_per_satellite) * math.pi
+                    
+                    radius = 0.4  # Radio muy pequeño para la esfera satélite
+                    x = radius * math.sin(theta) * math.cos(phi)
+                    y = radius * math.sin(theta) * math.sin(phi)
+                    z = radius * math.cos(theta)
+                    
+                    segment_node.setPos(x, y, z)
+                    segment_node.lookAt(0, 0, 0)  # Orientar hacia el centro
+                    
+                    satellite_segments.append(segment_node)
+            
+            # Color rojo como la esfera principal, con ligeras variaciones
+            red_variations = [
+                (0.9, 0.1, 0.1, 0.9),  # Rojo intenso
+                (0.8, 0.15, 0.05, 0.9),  # Rojo con toque naranja
+                (0.85, 0.05, 0.15, 0.9),  # Rojo con toque magenta
+                (0.95, 0.08, 0.08, 0.9),  # Rojo muy puro
+            ]
+            satellite_sphere.setColor(*red_variations[i % len(red_variations)])
+            satellite_sphere.setTransparency(TransparencyAttrib.MAlpha)
+            
+            # Configurar movimiento aleatorio inicial
+            import random
+            orbit_info = {
+                'x': random.uniform(-10, 10),  # Posición inicial X aleatoria
+                'y': random.uniform(-10, 10),  # Posición inicial Y aleatoria
+                'z': random.uniform(-2, 6),    # Posición inicial Z aleatoria
+                'vel_x': random.uniform(-2, 2),  # Velocidad X aleatoria
+                'vel_y': random.uniform(-2, 2),  # Velocidad Y aleatoria
+                'vel_z': random.uniform(-1, 1),  # Velocidad Z aleatoria
+                'bounce_factor': 0.8,  # Factor de rebote al chocar
+                'collision_distance': 3.5,  # Distancia para colisión con esfera principal
+                'collision_time': 0.0,  # Tiempo desde última colisión
+                'random_factor': random.uniform(0.5, 1.5),  # Factor de aleatoriedad individual
+                'segments': satellite_segments,  # Almacenar segmentos para deformación
+                'original_positions': []  # Posiciones originales de los segmentos
+            }
+            
+            # Almacenar posiciones originales de los segmentos del satélite
+            for segment in satellite_segments:
+                orbit_info['original_positions'].append(segment.getPos())
+            
+            self.satellites.append(satellite_sphere)
+            self.satellite_orbits.append(orbit_info)
+    
     def store_original_vertices(self):
         """Almacenar las posiciones originales para la animación"""
         # Almacenar las posiciones originales de cada segmento
@@ -289,22 +363,26 @@ class OrganicSphere(ShowBase):
                 if i < len(self.original_vertices):
                     orig_pos = self.original_vertices[i]
                     
-                    # Calcular la deformación sincronizada con audio
+                    # Calcular la deformación extremadamente suave
                     t = self.time
-                    freq1 = 1.5 + self.audio_amplitude * 2.0  # Frecuencia modulada por audio
-                    freq2 = 2.0 + self.audio_amplitude * 1.5
-                    freq3 = 1.2 + self.audio_amplitude * 1.8
+                    # Frecuencias muy bajas para movimientos ultra suaves
+                    freq1 = 0.4 + self.audio_amplitude * 0.5  # Frecuencia muy reducida
+                    freq2 = 0.5 + self.audio_amplitude * 0.4
+                    freq3 = 0.3 + self.audio_amplitude * 0.6
                     
-                    # Patrón de deformación influenciado por la música
+                    # Patrón de deformación ultra suave y orgánico
+                    wave1 = math.sin(t * freq1 + orig_pos.x * 1.0)
+                    wave2 = math.cos(t * freq2 + orig_pos.y * 1.2)
+                    wave3 = math.sin(t * freq3 + orig_pos.z * 1.4)
+                    wave4 = math.sin(t * 0.2 + orig_pos.length() * 1.0)
+                    
+                    # Combinar ondas de manera ultra suave
                     base_deformation = (
-                        0.15 * math.sin(t * freq1 + orig_pos.x * 2) *
-                        math.cos(t * freq2 + orig_pos.y * 2.5) *
-                        math.sin(t * freq3 + orig_pos.z * 3) *
-                        (1.0 + 0.3 * math.sin(t * 0.7 + orig_pos.length() * 2))
+                        0.05 * wave1 * wave2 * wave3 * (1.0 + 0.15 * wave4)
                     )
                     
-                    # Amplificar la deformación según la amplitud del audio
-                    audio_multiplier = 1.0 + self.audio_amplitude * 2.0  # Multiplicador basado en audio
+                    # Amplificar la deformación de manera muy gradual
+                    audio_multiplier = 1.0 + self.audio_amplitude * 0.8  # Multiplicador ultra suave
                     deformation = base_deformation * audio_multiplier
                     
                     # Aplicar deformación radial
@@ -312,30 +390,31 @@ class OrganicSphere(ShowBase):
                     new_pos = orig_pos + direction * deformation
                     child.setPos(new_pos)
                     
-                    # Variación de color influenciada por el audio
+                    # Variación de color extremadamente suave
                     audio_intensity = self.audio_amplitude
-                    r = 0.6 + 0.4 * math.sin(t * 0.3 + orig_pos.x * 0.5) + audio_intensity * 0.2
-                    g = 0.05 + 0.15 * math.cos(t * 0.4 + orig_pos.y * 0.6) + audio_intensity * 0.1
-                    b = 0.05 + 0.15 * math.sin(t * 0.5 + orig_pos.z * 0.7) + audio_intensity * 0.1
+                    # Cambios de color ultra lentos y sutiles
+                    r = 0.75 + 0.1 * math.sin(t * 0.08 + orig_pos.x * 0.2) + audio_intensity * 0.05
+                    g = 0.06 + 0.04 * math.cos(t * 0.09 + orig_pos.y * 0.25) + audio_intensity * 0.02
+                    b = 0.06 + 0.04 * math.sin(t * 0.07 + orig_pos.z * 0.22) + audio_intensity * 0.02
                     
                     # Asegurar que los valores estén en el rango correcto para rojo
-                    r = max(0.5, min(1.0, r))  # Rojo siempre alto
-                    g = max(0.0, min(0.3, g))  # Verde limitado
-                    b = max(0.0, min(0.3, b))  # Azul limitado
+                    r = max(0.7, min(0.9, r))  # Rojo más estable
+                    g = max(0.0, min(0.12, g))  # Verde extremadamente limitado
+                    b = max(0.0, min(0.12, b))  # Azul extremadamente limitado
                     
                     child.setColor(r, g, b, 1.0)
             
-            # Rotación suave de la esfera solo cuando hay música
+            # Rotación extremadamente suave de la esfera solo cuando hay música
             self.sphere.set_hpr(
-                self.sphere.get_h() + 10 * dt,
-                self.sphere.get_p() + 7.5 * dt,
-                self.sphere.get_r() + 5 * dt
+                self.sphere.get_h() + 2 * dt,   # Rotación ultra lenta
+                self.sphere.get_p() + 1.5 * dt, # Rotación ultra lenta
+                self.sphere.get_r() + 1 * dt    # Rotación ultra lenta
             )
             
-            # Hacer que la luz gire alrededor de la esfera solo cuando hay música
+            # Hacer que la luz gire alrededor de la esfera solo cuando hay música (ultra suave)
             if hasattr(self, 'dlnp'):
-                # Calcular nueva posición orbital para la luz
-                light_angle = self.time * 30  # Velocidad de rotación de la luz (grados por segundo)
+                # Calcular nueva posición orbital para la luz (ultra lenta)
+                light_angle = self.time * 8  # Velocidad de rotación ultra lenta (grados por segundo)
                 light_radius = 25.0
                 light_height = 20.0
                 
@@ -347,11 +426,147 @@ class OrganicSphere(ShowBase):
                 # Actualizar posición y orientación de la luz
                 self.dlnp.set_pos(light_x, light_y, light_z)
                 self.dlnp.look_at(0, 0, 2)  # Siempre apuntar al centro de la esfera
+            
+            # Animar satélites orbitales
+            self.animate_satellites(dt)
         else:
             # Cuando la música está pausada, establecer amplitud a 0
             self.audio_amplitude = 0.0
         
         return task.cont
+    
+    def animate_satellites(self, dt):
+        """Animar satélites pequeños con movimiento aleatorio y colisiones directas"""
+        import random
+        t = self.time
+        
+        for i, (satellite, orbit) in enumerate(zip(self.satellites, self.satellite_orbits)):
+            # Actualizar posición con movimiento aleatorio
+            orbit['x'] += orbit['vel_x'] * dt * orbit['random_factor']
+            orbit['y'] += orbit['vel_y'] * dt * orbit['random_factor']
+            orbit['z'] += orbit['vel_z'] * dt * orbit['random_factor']
+            
+            # Añadir componente aleatorio influenciado por la música
+            random_intensity = self.audio_amplitude * 2.0
+            orbit['vel_x'] += random.uniform(-random_intensity, random_intensity) * dt
+            orbit['vel_y'] += random.uniform(-random_intensity, random_intensity) * dt
+            orbit['vel_z'] += random.uniform(-random_intensity * 0.5, random_intensity * 0.5) * dt
+            
+            # Limitar velocidades para evitar movimiento demasiado rápido
+            max_vel = 3.0
+            orbit['vel_x'] = max(-max_vel, min(max_vel, orbit['vel_x']))
+            orbit['vel_y'] = max(-max_vel, min(max_vel, orbit['vel_y']))
+            orbit['vel_z'] = max(-max_vel * 0.5, min(max_vel * 0.5, orbit['vel_z']))
+            
+            # Verificar colisión con la esfera principal (centro en 0,0,2)
+            distance_to_center = math.sqrt(orbit['x']**2 + orbit['y']**2 + (orbit['z']-2)**2)
+            
+            if distance_to_center < orbit['collision_distance']:
+                # Colisión directa - rebotar
+                orbit['collision_time'] = t
+                
+                # Calcular dirección de rebote
+                if distance_to_center > 0:
+                    normal_x = orbit['x'] / distance_to_center
+                    normal_y = orbit['y'] / distance_to_center
+                    normal_z = (orbit['z'] - 2) / distance_to_center
+                else:
+                    # Si está exactamente en el centro, rebotar en dirección aleatoria
+                    normal_x = random.uniform(-1, 1)
+                    normal_y = random.uniform(-1, 1)
+                    normal_z = random.uniform(-1, 1)
+                
+                # Reflejar velocidad (rebote)
+                dot_product = (orbit['vel_x'] * normal_x + 
+                              orbit['vel_y'] * normal_y + 
+                              orbit['vel_z'] * normal_z)
+                
+                orbit['vel_x'] -= 2 * dot_product * normal_x * orbit['bounce_factor']
+                orbit['vel_y'] -= 2 * dot_product * normal_y * orbit['bounce_factor']
+                orbit['vel_z'] -= 2 * dot_product * normal_z * orbit['bounce_factor']
+                
+                # Empujar fuera de la esfera para evitar que se quede atrapado
+                push_distance = orbit['collision_distance'] + 0.5
+                orbit['x'] = normal_x * push_distance
+                orbit['y'] = normal_y * push_distance
+                orbit['z'] = 2 + normal_z * push_distance
+                
+                # Añadir velocidad extra por la música durante la colisión
+                collision_boost = self.audio_amplitude * 2.0
+                orbit['vel_x'] += normal_x * collision_boost
+                orbit['vel_y'] += normal_y * collision_boost
+                orbit['vel_z'] += normal_z * collision_boost * 0.5
+            
+            # Mantener dentro de los límites del viewport
+            max_distance = 15
+            if abs(orbit['x']) > max_distance:
+                orbit['x'] = max_distance * (1 if orbit['x'] > 0 else -1)
+                orbit['vel_x'] *= -orbit['bounce_factor']
+            if abs(orbit['y']) > max_distance:
+                orbit['y'] = max_distance * (1 if orbit['y'] > 0 else -1)
+                orbit['vel_y'] *= -orbit['bounce_factor']
+            if orbit['z'] < -2:
+                orbit['z'] = -2
+                orbit['vel_z'] *= -orbit['bounce_factor']
+            elif orbit['z'] > 8:
+                orbit['z'] = 8
+                orbit['vel_z'] *= -orbit['bounce_factor']
+            
+            # Deformar los segmentos de la esfera satélite al ritmo de la música
+            if 'segments' in orbit and 'original_positions' in orbit:
+                for j, (segment, orig_pos) in enumerate(zip(orbit['segments'], orbit['original_positions'])):
+                    # Deformación más pequeña y rápida para satélites pequeños
+                    sat_freq1 = 1.2 + i * 0.3 + self.audio_amplitude * 0.8
+                    sat_freq2 = 1.5 + i * 0.2 + self.audio_amplitude * 0.6
+                    sat_freq3 = 0.9 + i * 0.4 + self.audio_amplitude * 1.0
+                    
+                    # Ondas de deformación más intensas para satélites pequeños
+                    wave1 = math.sin(t * sat_freq1 + orig_pos.x * 3.0 + i)
+                    wave2 = math.cos(t * sat_freq2 + orig_pos.y * 3.5 + i)
+                    wave3 = math.sin(t * sat_freq3 + orig_pos.z * 2.8 + i)
+                    
+                    # Deformación pequeña pero visible
+                    base_deformation = 0.02 * wave1 * wave2 * wave3
+                    
+                    # Amplificar con audio
+                    sat_audio_multiplier = 1.0 + self.audio_amplitude * 0.8
+                    deformation = base_deformation * sat_audio_multiplier
+                    
+                    # Aplicar deformación radial
+                    direction = orig_pos.normalized()
+                    new_pos = orig_pos + direction * deformation
+                    segment.setPos(new_pos)
+                    
+                    # Colores base rojos como la esfera principal
+                    base_colors = [
+                        (0.9, 0.1, 0.1),  # Rojo intenso
+                        (0.8, 0.15, 0.05),  # Rojo con toque naranja
+                        (0.85, 0.05, 0.15),  # Rojo con toque magenta
+                        (0.95, 0.08, 0.08),  # Rojo muy puro
+                    ]
+                    base_color = base_colors[i % len(base_colors)]
+                    
+                    # Variación de color con la música y colisiones
+                    collision_intensity = max(0, 1.0 - (t - orbit['collision_time']) * 4)
+                    color_variation = 0.1 * math.sin(t * 0.2 + j * 0.2) * self.audio_amplitude
+                    bright_factor = 1.0 + collision_intensity * 0.5
+                    
+                    r = max(0.1, min(1.0, (base_color[0] + color_variation) * bright_factor))
+                    g = max(0.1, min(1.0, (base_color[1] + color_variation) * bright_factor))
+                    b = max(0.1, min(1.0, (base_color[2] + color_variation) * bright_factor))
+                    
+                    segment.setColor(r, g, b, 0.95)
+            
+            # Aplicar posición final
+            satellite.setPos(orbit['x'], orbit['y'], orbit['z'])
+            
+            # Rotación rápida y aleatoria
+            rotation_speed = 50 * (1 + self.audio_amplitude)
+            satellite.setHpr(
+                satellite.getH() + rotation_speed * dt * (1 + i * 0.5),
+                satellite.getP() + rotation_speed * dt * (1 + i * 0.3),
+                satellite.getR() + rotation_speed * dt * (1 + i * 0.7)
+            )
     
     def update_camera(self):
         """Actualizar la posición de la cámara según los controles"""
