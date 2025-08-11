@@ -2,6 +2,10 @@
 
 Una aplicación de visualización 3D interactiva que presenta una esfera orgánica que se deforma dinámicamente al ritmo de la música, desarrollada con Panda3D y Python.
 
+Imágenes de ejemplo:
+
+![DEMO](captura_app.png)
+
 ## 🎵 Características
 
 - **Deformación orgánica en tiempo real**: La esfera se deforma siguiendo el ritmo y la amplitud del audio
