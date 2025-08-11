@@ -2,7 +2,7 @@
 
 Una aplicación de visualización 3D interactiva que presenta una esfera orgánica que se deforma dinámicamente al ritmo de la música, desarrollada con Panda3D y Python.
 
-Imágenes de ejemplo:
+Imagen de ejemplo:
 
 ![DEMO](captura_app.png)
 
@@ -63,7 +63,6 @@ poetry run python panda3d_animacion/main.py
 
 La aplicación busca automáticamente archivos MP3 en el directorio del proyecto. Actualmente incluye:
 - `blackbird.mp3` - Archivo de audio principal
-- `ash.mp3` - Archivo de audio alternativo
 
 Para usar tu propia música, simplemente coloca archivos MP3 en el directorio raíz del proyecto.
 
@@ -96,8 +95,7 @@ Para usar tu propia música, simplemente coloca archivos MP3 en el directorio ra
 panda_3d_animacion/
 ├── panda3d_animacion/
 │   ├── __init__.py
-│   ├── main.py              # Aplicación principal
-│   └── ash.mp3              # Archivo de audio
+│   └── main.py              # Aplicación principal
 ├── blackbird.mp3            # Archivo de audio principal
 ├── pyproject.toml           # Configuración de Poetry
 ├── poetry.lock              # Dependencias bloqueadas
