@@ -2,6 +2,7 @@ from direct.showbase.ShowBase import ShowBase
 from panda3d.core import *
 from direct.task import Task
 from direct.gui.OnscreenText import OnscreenText
+from direct.gui.DirectGui import *
 import math
 import random
 import pygame
@@ -41,23 +42,71 @@ class OrganicSphere(ShowBase):
         self.camera_angle = 0.0
         self.camera_height = 5.0
         
-        # Crear indicadores en pantalla
+        # Variables para análisis de audio (inicializar antes de crear GUI)
+        self.audio_amplitude = 0.0
+        self.audio_playing = False
+        self.music_file = None
+        self.volume = 0.7  # Volumen inicial (70%)
+        self.deformation_factor = 1.0  # Factor de amplitud de deformación (100%)
+        
+        # Crear indicadores en pantalla (esquina inferior izquierda)
         self.zoom_text = OnscreenText(
             text="Zoom: 100%",
-            pos=(-1.3, 0.9),
-            scale=0.07,
+            pos=(-1.35, -0.65),
+            scale=0.05,  # Reducido de 0.07 a 0.05
             fg=(0, 0, 0, 1),
             align=TextNode.ALeft,
             mayChange=True
         )
         
-        self.audio_text = OnscreenText(
-            text="Audio: 0%",
-            pos=(-1.3, 0.8),
-            scale=0.07,
-            fg=(0.8, 0, 0, 1),  # Rojo para que combine con la esfera
+
+        
+        # Crear slider de volumen (mejor posicionado)
+        self.volume_text = OnscreenText(
+            text="Volumen: 70%",
+            pos=(-1.35, -0.82),
+            scale=0.045,  # Reducido de 0.06 a 0.045
+            fg=(0.7, 0.7, 0.7, 1),
             align=TextNode.ALeft,
             mayChange=True
+        )
+        
+        self.volume_slider = DirectSlider(
+            range=(0, 1),
+            value=self.volume,
+            pageSize=0.1,
+            pos=(-0.7, 0, -0.82),  # Movido más a la derecha
+            scale=0.25,  # Reducido de 0.3 a 0.25
+            command=self.update_volume,
+            thumb_relief=DGG.RAISED,
+            thumb_frameSize=(-0.04, 0.04, -0.06, 0.06),  # Thumb más pequeño
+            thumb_frameColor=(0.8, 0.2, 0.2, 1),  # Rojo para el thumb
+            frameColor=(0.3, 0.3, 0.3, 1),  # Gris para la barra
+            relief=DGG.SUNKEN
+        )
+        
+        # Crear slider de amplitud de deformación (mejor posicionado)
+        self.deformation_text = OnscreenText(
+            text="Deformación: 100%",
+            pos=(-1.35, -0.92),
+            scale=0.045,  # Reducido de 0.06 a 0.045
+            fg=(0.7, 0.7, 0.7, 1),
+            align=TextNode.ALeft,
+            mayChange=True
+        )
+        
+        self.deformation_slider = DirectSlider(
+            range=(0, 2),  # Rango de 0% a 200% de deformación
+            value=self.deformation_factor,
+            pageSize=0.1,
+            pos=(-0.7, 0, -0.92),  # Movido más a la derecha
+            scale=0.25,  # Reducido de 0.3 a 0.25
+            command=self.update_deformation,
+            thumb_relief=DGG.RAISED,
+            thumb_frameSize=(-0.04, 0.04, -0.06, 0.06),  # Thumb más pequeño
+            thumb_frameColor=(0.2, 0.8, 0.2, 1),  # Verde para el thumb
+            frameColor=(0.3, 0.3, 0.3, 1),  # Gris para la barra
+            relief=DGG.SUNKEN
         )
         
         # Actualizar la cámara después de crear el texto
@@ -69,11 +118,6 @@ class OrganicSphere(ShowBase):
         # Variables para la animación
         self.time = 0.0
         self.original_vertices = []
-        
-        # Variables para análisis de audio
-        self.audio_amplitude = 0.0
-        self.audio_playing = False
-        self.music_file = None
         
         # Variables para satélites
         self.satellites = []
@@ -196,6 +240,7 @@ class OrganicSphere(ShowBase):
         """Cargar y reproducir el archivo de música"""
         try:
             pygame.mixer.music.load(self.music_file)
+            pygame.mixer.music.set_volume(self.volume)  # Configurar volumen inicial
             pygame.mixer.music.play(-1)  # Reproducir en bucle
             self.audio_playing = True
             print("Música iniciada. La esfera se sincronizará con el audio.")
@@ -231,7 +276,7 @@ class OrganicSphere(ShowBase):
         
         # Configurar el título de la ventana
         props = WindowProperties()
-        props.setTitle('Esfera Orgánica con Sombras')
+        props.setTitle('Visualización de Audio - Panda3D')
         self.win.requestProperties(props)
         
         # Luz direccional principal que proyecta sombras
@@ -383,7 +428,7 @@ class OrganicSphere(ShowBase):
                     
                     # Amplificar la deformación de manera muy gradual
                     audio_multiplier = 1.0 + self.audio_amplitude * 0.8  # Multiplicador ultra suave
-                    deformation = base_deformation * audio_multiplier
+                    deformation = base_deformation * audio_multiplier * self.deformation_factor
                     
                     # Aplicar deformación radial
                     direction = orig_pos.normalized()
@@ -528,9 +573,9 @@ class OrganicSphere(ShowBase):
                     # Deformación pequeña pero visible
                     base_deformation = 0.02 * wave1 * wave2 * wave3
                     
-                    # Amplificar con audio
+                    # Amplificar con audio y factor de deformación
                     sat_audio_multiplier = 1.0 + self.audio_amplitude * 0.8
-                    deformation = base_deformation * sat_audio_multiplier
+                    deformation = base_deformation * sat_audio_multiplier * self.deformation_factor
                     
                     # Aplicar deformación radial
                     direction = orig_pos.normalized()
@@ -587,20 +632,15 @@ class OrganicSphere(ShowBase):
         base_radius = 15.0
         zoom_percentage = int((base_radius / self.camera_radius) * 100)
         self.zoom_text.setText(f"Zoom: {zoom_percentage}%")
-        
-        # Actualizar el indicador de audio solo si está inicializado
-        if hasattr(self, 'audio_amplitude'):
-            audio_percentage = int(self.audio_amplitude * 100)
-            self.audio_text.setText(f"Audio: {audio_percentage}%")
     
     def spin_camera_left(self):
-        """Rotar cámara hacia la izquierda"""
-        self.camera_angle = (self.camera_angle + 5) % 360
+        """Rotar cámara hacia la izquierda (más suave)"""
+        self.camera_angle = (self.camera_angle + 2) % 360
         self.update_camera()
     
     def spin_camera_right(self):
-        """Rotar cámara hacia la derecha"""
-        self.camera_angle = (self.camera_angle - 5) % 360
+        """Rotar cámara hacia la derecha (más suave)"""
+        self.camera_angle = (self.camera_angle - 2) % 360
         self.update_camera()
     
     def zoom_in(self):
@@ -611,9 +651,28 @@ class OrganicSphere(ShowBase):
     
     def zoom_out(self):
         """Alejar la cámara"""
-        if self.camera_radius < 30.0:
+        if self.camera_radius < 50.0:
             self.camera_radius += 1.0
             self.update_camera()
+    
+    def update_volume(self):
+        """Actualizar el volumen de la música cuando se mueve el slider"""
+        self.volume = self.volume_slider['value']
+        if self.music_file and pygame.mixer.get_init():
+            pygame.mixer.music.set_volume(self.volume)
+        
+        # Actualizar el texto del volumen en el slider
+        volume_percentage = int(self.volume * 100)
+        # Opcional: mostrar el porcentaje en el texto del volumen
+        self.volume_text.setText(f"Volumen: {volume_percentage}%")
+    
+    def update_deformation(self):
+        """Actualizar el factor de deformación cuando se mueve el slider"""
+        self.deformation_factor = self.deformation_slider['value']
+        
+        # Actualizar el texto del factor de deformación
+        deformation_percentage = int(self.deformation_factor * 100)
+        self.deformation_text.setText(f"Deformación: {deformation_percentage}%")
     
     def toggle_music(self):
         """Alternar entre play y pausa de la música"""
