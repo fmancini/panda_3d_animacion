@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "panda3d-animacion-organica"
+version = "0.1.0"
+description = "Animación procedural de una esfera que se deforma orgánicamente con Panda3D"
+authors = ["Usuario <usuario@example.com>"]
+packages = [{include = "panda3d_animacion"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+panda3d = "^1.10.11"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
