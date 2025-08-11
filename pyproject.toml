@@ -8,6 +8,7 @@ packages = [{include = "panda3d_animacion"}]
 [tool.poetry.dependencies]
 python = "^3.8"
 panda3d = "^1.10.11"
+pygame = "^2.5.0"
 
 [tool.poetry.group.dev.dependencies]
 
