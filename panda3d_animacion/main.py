@@ -1,6 +1,7 @@
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import *
 from direct.task import Task
+from direct.gui.OnscreenText import OnscreenText
 import math
 import random
 
@@ -32,9 +33,22 @@ class OrganicSphere(ShowBase):
         self.disable_mouse()
         
         # Configurar controles de cámara
-        self.camera_radius = 15.0
+        # Para 60% de zoom: base_radius / zoom_percentage * 100 = 15.0 / 60 * 100 = 25.0
+        self.camera_radius = 25.0  # Esto da 60% de zoom inicial
         self.camera_angle = 0.0
         self.camera_height = 5.0
+        
+        # Crear indicador de zoom en pantalla
+        self.zoom_text = OnscreenText(
+            text="Zoom: 100%",
+            pos=(-1.3, 0.9),
+            scale=0.07,
+            fg=(0, 0, 0, 1),
+            align=TextNode.ALeft,
+            mayChange=True
+        )
+        
+        # Actualizar la cámara después de crear el texto
         self.update_camera()
         
         # Configurar iluminación con sombras
@@ -97,19 +111,16 @@ class OrganicSphere(ShowBase):
                 card.setPos(x * radius, y * radius, z * radius)
                 card.lookAt(0, 0, 0)
                 
-                # Añadir color con variación suave
-                r = 0.4 + 0.6 * (x + 1) / 2
-                g = 0.4 + 0.6 * (y + 1) / 2
-                b = 0.5 + 0.5 * (z + 1) / 2
+                # Añadir color rojo con variación suave
+                r = 0.8 + 0.2 * (x + 1) / 2  # Rojo muy dominante
+                g = 0.05 + 0.1 * (y + 1) / 2  # Verde muy mínimo
+                b = 0.05 + 0.1 * (z + 1) / 2  # Azul muy mínimo
                 card.setColor(r, g, b, 1.0)
                 
-                # Añadir material para mejor iluminación
-                mat = Material()
-                mat.set_shininess(50.0)
-                mat.set_ambient((0.3, 0.3, 0.3, 1.0))
-                mat.set_diffuse((0.7, 0.7, 0.7, 1.0))
-                mat.set_specular((0.3, 0.3, 0.3, 1.0))
-                card.set_material(mat)
+                # NO aplicar material que sobrescribe el color
+                # En su lugar, configurar propiedades de renderizado
+                card.setRenderModeWireframe()
+                card.setRenderModeFilled()
                 
                 # Hacer que los segmentos se mezclen mejor
                 card.setTransparency(TransparencyAttrib.MAlpha)
@@ -195,15 +206,15 @@ class OrganicSphere(ShowBase):
                 new_pos = orig_pos + direction * deformation
                 child.setPos(new_pos)
                 
-                # Variación de color orgánica
-                r = 0.4 + 0.5 * math.sin(t * 0.3 + orig_pos.x * 0.5)
-                g = 0.4 + 0.5 * math.cos(t * 0.4 + orig_pos.y * 0.6)
-                b = 0.5 + 0.4 * math.sin(t * 0.5 + orig_pos.z * 0.7)
+                # Variación de color orgánica en tonos rojos
+                r = 0.6 + 0.4 * math.sin(t * 0.3 + orig_pos.x * 0.5)  # Rojo dominante
+                g = 0.05 + 0.15 * math.cos(t * 0.4 + orig_pos.y * 0.6)  # Verde mínimo
+                b = 0.05 + 0.15 * math.sin(t * 0.5 + orig_pos.z * 0.7)  # Azul mínimo
                 
-                # Asegurar que los valores estén en el rango [0,1]
-                r = max(0.2, min(1.0, r))
-                g = max(0.2, min(1.0, g))
-                b = max(0.3, min(1.0, b))
+                # Asegurar que los valores estén en el rango correcto para rojo
+                r = max(0.5, min(1.0, r))  # Rojo siempre alto
+                g = max(0.0, min(0.3, g))  # Verde limitado
+                b = max(0.0, min(0.3, b))  # Azul limitado
                 
                 child.setColor(r, g, b, 1.0)
         
@@ -214,9 +225,21 @@ class OrganicSphere(ShowBase):
             self.sphere.get_r() + 5 * dt
         )
         
-        # Actualizar la luz direccional para que gire lentamente
+        # Hacer que la luz gire alrededor de la esfera
         if hasattr(self, 'dlnp'):
-            self.dlnp.set_h(self.dlnp.get_h() + 5 * dt)
+            # Calcular nueva posición orbital para la luz
+            light_angle = self.time * 30  # Velocidad de rotación de la luz (grados por segundo)
+            light_radius = 25.0
+            light_height = 20.0
+            
+            # Posición orbital de la luz
+            light_x = math.sin(math.radians(light_angle)) * light_radius
+            light_y = -math.cos(math.radians(light_angle)) * light_radius
+            light_z = light_height
+            
+            # Actualizar posición y orientación de la luz
+            self.dlnp.set_pos(light_x, light_y, light_z)
+            self.dlnp.look_at(0, 0, 2)  # Siempre apuntar al centro de la esfera
         
         return task.cont
     
@@ -229,6 +252,16 @@ class OrganicSphere(ShowBase):
             self.camera_height
         )
         self.camera.look_at(0, 0, 2)
+        
+        # Actualizar el indicador de zoom
+        self.update_zoom_display()
+    
+    def update_zoom_display(self):
+        """Actualizar el texto del zoom en pantalla"""
+        # Calcular el porcentaje de zoom (15.0 es el radio base = 100%)
+        base_radius = 15.0
+        zoom_percentage = int((base_radius / self.camera_radius) * 100)
+        self.zoom_text.setText(f"Zoom: {zoom_percentage}%")
     
     def spin_camera_left(self):
         """Rotar cámara hacia la izquierda"""
